@@ -1065,7 +1065,6 @@ async function openPanel(node) {
     const row = document.createElement("div");
     row.className = "pa-row" + (it.enabled === false ? " disabled" : "");
     row.draggable = true;
-    row.style.marginLeft = depth * 16 + "px";
 
     const handle = document.createElement("span");
     handle.className = "pa-handle";
@@ -1156,7 +1155,6 @@ async function openPanel(node) {
     const row = document.createElement("div");
     row.className = "pa-row pa-grouphdr";
     row.draggable = true;
-    row.style.marginLeft = depth * 16 + "px";
 
     const handle = document.createElement("span");
     handle.className = "pa-handle";
@@ -1209,7 +1207,7 @@ async function openPanel(node) {
         container.appendChild(makeGroupRow(n, list, i, depth));
         const kids = document.createElement("div");
         kids.className = "pa-groupkids";
-        kids.style.marginLeft = (depth + 1) * 16 + "px";
+        kids.style.marginLeft = "16px";
         if (n.collapsed) kids.style.display = "none";
         kids.addEventListener("dragover", (e) => {
           e.preventDefault();
