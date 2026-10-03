@@ -232,6 +232,10 @@ function injectStyle() {
   .pa-cat{margin:2px 0;}
   .pa-catname{cursor:pointer;padding:4px 6px;border-radius:5px;user-select:none;display:flex;align-items:center;gap:6px;color:#c8cdd6;}
   .pa-catname:hover{background:#26262e;}
+  .pa-cattext{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pa-catpen{opacity:0;color:#8fc7ff;padding:0 4px;border-radius:4px;}
+  .pa-catname:hover .pa-catpen{opacity:1;}
+  .pa-catpen:hover{background:#2e3a4a;}
   .pa-children{margin-left:14px;border-left:1px solid #2f2f38;padding-left:6px;}
   .pa-item{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;border:1px solid transparent;}
   .pa-item:hover{background:#26262e;border-color:#3a3a44;}
@@ -645,6 +649,48 @@ async function openPanel(node) {
     }
   }
 
+  // 重命名目录 = 改路径前缀，并同步组装区/预设里的 path 引用
+  function retargetPathInList(list, oldPrefix, newPrefix) {
+    for (const n of list || []) {
+      if (!n) continue;
+      if (n.kind === "group") { retargetPathInList(n.children, oldPrefix, newPrefix); continue; }
+      if (n.kind === "lib" && n.path) {
+        if (n.path === oldPrefix) n.path = newPrefix;
+        else if (n.path.startsWith(oldPrefix + "/")) n.path = newPrefix + n.path.slice(oldPrefix.length);
+      }
+    }
+  }
+
+  async function renameDir(oldPath, currentName) {
+    const v = await paAskText(`重命名目录（${oldPath}）`, currentName);
+    if (v == null) return;
+    const name = v.split("/").map((s) => s.trim()).filter(Boolean).join("/");
+    if (!name || name === currentName) return;
+    const slash = oldPath.lastIndexOf("/");
+    const parent = slash >= 0 ? oldPath.slice(0, slash) : "";
+    const newPrefix = parent ? parent + "/" + name : name;
+    if (newPrefix === oldPath) return;
+    let changed = false;
+    for (const it of lib.items) {
+      if (it.path === oldPath) { it.path = newPrefix; changed = true; }
+      else if (it.path.startsWith(oldPath + "/")) {
+        it.path = newPrefix + it.path.slice(oldPath.length);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    retargetPathInList(getAssembly(node), oldPath, newPrefix);
+    const presets = getPresets(node);
+    for (const k of Object.keys(presets)) {
+      if (Array.isArray(presets[k])) retargetPathInList(presets[k], oldPath, newPrefix);
+    }
+    dirty = true;
+    renderTree();
+    renderAssembly();
+    syncNode(node, lib);
+    toast("已重命名目录（记得点“保存词库到文件”）");
+  }
+
   // ＋ 按钮：自动归组，追加到末尾
   function addToAssembly(item) {
     const entry = makeLibEntry(item);
@@ -763,7 +809,7 @@ async function openPanel(node) {
         wrap.className = "pa-cat";
         const nameEl = document.createElement("div");
         nameEl.className = "pa-catname";
-        nameEl.innerHTML = `<span>▾</span><span>${escapeHtml(child.name)}</span>`;
+        nameEl.innerHTML = `<span class="pa-arrow">▾</span><span class="pa-cattext">${escapeHtml(child.name)}</span><span class="pa-catpen" title="重命名此目录">✎</span>`;
         const kids = document.createElement("div");
         kids.className = "pa-children";
         let open = treeOpen.has(child.path) ? treeOpen.get(child.path) : true;
@@ -774,6 +820,10 @@ async function openPanel(node) {
           treeOpen.set(child.path, open);
           kids.style.display = open ? "" : "none";
           nameEl.firstChild.textContent = open ? "▾" : "▸";
+        });
+        nameEl.querySelector(".pa-catpen").addEventListener("click", (e) => {
+          e.stopPropagation();
+          renameDir(child.path, child.name);
         });
         renderNode(child, kids);
         wrap.appendChild(nameEl);
