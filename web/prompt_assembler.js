@@ -1005,7 +1005,8 @@ async function openPanel(node) {
       syncNode(node, lib);
     } else {
       const cur = resolveAssemblyItem(it, lib);
-      const v = await paAskText("临时修改（只改变组装区内文本，不会写回词库）", cur, "词库原文：" + libraryTextOf(it, lib));
+      const ref = it.path ? (it.path + (it.label ? " · " + it.label : "")) : (it.label || "(根目录)");
+      const v = await paAskText("临时修改（只改变组装区内文本，不会写回词库）", cur, "词库条目：" + ref);
       if (v === null || v === cur) return; // 没改就不动
       if (v === libraryTextOf(it, lib)) delete it.override; // 改回词库原文 → 取消“已改”
       else it.override = v;
