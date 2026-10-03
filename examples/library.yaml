@@ -1,0 +1,47 @@
+# 示例词库：首次运行时会以此为种子创建 library.yaml（若不存在）。
+# 你也可以直接复制这个文件成 library.yaml 再改。
+#
+#   path  用 / 分层，层级随便加，树会自动生成。例：角色/紫罗兰/常服1/上身服设
+#   label 条目短名（显示用，可留空）
+#   text  真正输出到 prompt 的文本，原样输出，不加权重括号
+#
+# 组装顺序不由这里决定，顺序在节点的组装区里排。
+
+separator: ", "
+
+items:
+  - path: 画质
+    label: 基础质量
+    text: "masterpiece, best quality, highly detailed"
+
+  - path: 角色/示例角色/常服1/整体
+    label: 常服1整体
+    text: "the character, casual outfit, full body"
+
+  - path: 角色/示例角色/常服1/上身服设
+    label: 上身
+    text: "white blouse with a ribbon tie, upper body"
+
+  - path: 角色/示例角色/常服1/下身服设
+    label: 下身
+    text: "pleated skirt, thigh-high socks, lower body"
+
+  - path: 角色/示例角色/面部/面部五官
+    label: 面部五官
+    text: "detailed face, soft expression"
+
+  - path: 角色/示例角色/发型
+    label: 发型
+    text: "long hair, side braid"
+
+  - path: 镜头/视角
+    label: 正面
+    text: "front view, eye level"
+
+  - path: 镜头/视角
+    label: 背身
+    text: "view from behind, back turned to viewer"
+
+  - path: 环境/光照
+    label: 暖色黄昏
+    text: "golden hour backlight, warm rim light"
