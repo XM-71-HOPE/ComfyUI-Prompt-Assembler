@@ -129,11 +129,15 @@ function findLibItem(lib, path, label) {
   );
 }
 
+function libraryTextOf(it, lib) {
+  const f = findLibItem(lib, it.path, it.label);
+  return f ? (f.text || "") : (it.text || "");
+}
+
 function resolveAssemblyItem(it, lib) {
   if (it.kind === "text") return it.text || "";
   if (typeof it.override === "string") return it.override; // 临时修改优先
-  const f = findLibItem(lib, it.path, it.label);
-  return f ? f.text || "" : it.text || "";
+  return libraryTextOf(it, lib);
 }
 
 // 深度优先展开，分组本身不产出文本
@@ -987,11 +991,18 @@ async function openPanel(node) {
   async function editRow(it) {
     if (it.kind === "text") {
       const v = await paAskText("编辑文本", it.text || "");
-      if (v !== null) { it.text = v; renderAssembly(); syncNode(node, lib); }
+      if (v === null || v === (it.text || "")) return;
+      it.text = v;
+      renderAssembly();
+      syncNode(node, lib);
     } else {
-      const cur = typeof it.override === "string" ? it.override : resolveAssemblyItem(it, lib);
+      const cur = resolveAssemblyItem(it, lib);
       const v = await paAskText("临时修改（只改变组装区内文本，不会写回词库）", cur);
-      if (v !== null) { it.override = v; renderAssembly(); syncNode(node, lib); }
+      if (v === null || v === cur) return; // 没改就不动
+      if (v === libraryTextOf(it, lib)) delete it.override; // 改回词库原文 → 取消“已改”
+      else it.override = v;
+      renderAssembly();
+      syncNode(node, lib);
     }
   }
 
