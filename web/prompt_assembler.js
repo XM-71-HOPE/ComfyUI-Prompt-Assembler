@@ -273,7 +273,6 @@ function injectStyle() {
   .pa-row.overridden .pa-rtext{color:#ffcf7a;}
   .pa-handle{cursor:grab;color:#666;user-select:none;}
   .pa-rlabel{color:#8fc7ff;font-weight:600;flex:0 0 auto;}
-  .pa-rlabel.pa-aliased{color:#ffd479;}
   .pa-rtext{color:#c3c8d2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-badge{font-size:11px;color:#888;border:1px solid #444;border-radius:4px;padding:0 4px;white-space:nowrap;}
   .pa-badge.pa-editable{cursor:pointer;}
@@ -296,6 +295,7 @@ function injectStyle() {
   .pa-dialog-ov{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:13500;display:flex;align-items:center;justify-content:center;}
   .pa-dialog{background:#1f1f26;border:1px solid #45454f;border-radius:10px;padding:16px;width:min(460px,90vw);display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 40px rgba(0,0,0,.6);}
   .pa-dialog-msg{color:#e6e6e6;white-space:pre-wrap;}
+  .pa-dialog-sub{color:#8a9099;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .pa-dialog-btns{display:flex;gap:8px;justify-content:flex-end;}
   `;
   document.head.appendChild(s);
@@ -334,7 +334,7 @@ function paConfirm(message) {
   });
 }
 
-function paAskText(message, defaultValue = "") {
+function paAskText(message, defaultValue = "", sub = "") {
   return new Promise((resolve) => {
     const val = String(defaultValue == null ? "" : defaultValue);
     const wide = val.length > 60 || val.includes("\n");
@@ -362,7 +362,15 @@ function paAskText(message, defaultValue = "") {
     cancel.className = "pa-btn";
     cancel.textContent = "取消";
     btns.append(ok, cancel);
-    box.append(msg, inp, btns);
+    box.append(msg);
+    if (sub) {
+      const s = document.createElement("div");
+      s.className = "pa-dialog-sub";
+      s.textContent = String(sub);
+      s.title = String(sub);
+      box.appendChild(s);
+    }
+    box.append(inp, btns);
     ov.appendChild(box);
     document.body.appendChild(ov);
     const done = (v) => {
@@ -997,7 +1005,7 @@ async function openPanel(node) {
       syncNode(node, lib);
     } else {
       const cur = resolveAssemblyItem(it, lib);
-      const v = await paAskText("临时修改（只改变组装区内文本，不会写回词库）", cur);
+      const v = await paAskText("临时修改（只改变组装区内文本，不会写回词库）", cur, "词库原文：" + libraryTextOf(it, lib));
       if (v === null || v === cur) return; // 没改就不动
       if (v === libraryTextOf(it, lib)) delete it.override; // 改回词库原文 → 取消“已改”
       else it.override = v;
@@ -1102,14 +1110,14 @@ async function openPanel(node) {
 
     const baseLabel = it.kind === "text" ? "[文本]" : (it.label || it.path);
     const label = document.createElement("span");
-    label.className = "pa-rlabel" + (it.alias ? " pa-aliased" : "");
+    label.className = "pa-rlabel";
     label.textContent = it.alias || baseLabel;
     label.title = it.alias
       ? `临时显示名；原名：${baseLabel}（双击改；留空则恢复原名）`
       : "双击临时改名（只改组装区显示名，不动词库）";
     label.addEventListener("dblclick", async (e) => {
       e.stopPropagation();
-      const v = await paAskText("临时改名（只改组装区显示名，不动词库）", it.alias || "");
+      const v = await paAskText("临时改名（只改组装区显示名，不动词库）", it.alias || "", "原名：" + baseLabel);
       if (v === null) return;
       if (v.trim() === "") delete it.alias; // 留空 = 恢复原名
       else it.alias = v.trim();
