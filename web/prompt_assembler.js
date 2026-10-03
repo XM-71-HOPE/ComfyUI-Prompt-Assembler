@@ -158,8 +158,21 @@ function joinAssembly(node, lib) {
 function syncNode(node, lib) {
   const w = getWidget(node, WIDGET_NAME);
   if (w) w.value = joinAssembly(node, lib);
+  applyReadonly(node); // 预览框只读（面板才是数据源）
   node.setDirtyCanvas?.(true, true);
   app.graph?.setDirtyCanvas?.(true, true);
+}
+
+// 让预览文本框只读（内容只由面板生成，避免手改被覆盖的困惑）
+function applyReadonly(node) {
+  const w = node.widgets && node.widgets.find((x) => x.name === WIDGET_NAME);
+  if (!w) return;
+  if (w.inputEl) {
+    if (!w.inputEl.readOnly) w.inputEl.readOnly = true;
+    try { w.inputEl.setAttribute("readonly", ""); } catch (_) {}
+    w.inputEl.style.cursor = "default";
+  }
+  try { w.tooltip = "只读预览：内容由「打开组装面板」生成"; } catch (_) {}
 }
 
 // 分隔符框里用 \n / \t 表示换行、制表符，方便肉眼看见
@@ -1234,6 +1247,7 @@ app.registerExtension({
       const node = this;
       node.addWidget("button", "打开组装面板", null, () => openPanel(node));
       setTimeout(() => resync(node), 80);
+      setTimeout(() => applyReadonly(node), 0);
       return r;
     };
 
@@ -1242,11 +1256,12 @@ app.registerExtension({
       const r = onConfigure?.apply(this, arguments);
       const node = this;
       setTimeout(() => resync(node), 80);
+      setTimeout(() => applyReadonly(node), 0);
       return r;
     };
   },
   async loadedGraphNode(node) {
-    if (node.type === NODE_NAME) resync(node);
+    if (node.type === NODE_NAME) { resync(node); applyReadonly(node); }
   },
 });
 
