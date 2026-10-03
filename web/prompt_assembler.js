@@ -614,6 +614,28 @@ async function openPanel(node) {
     return hit;
   }
 
+  // 改了词库条目的短名后，同步组装区/预设里对它的引用，保持链接不断
+  function retargetLabelInList(list, path, oldLabel, newLabel) {
+    for (const n of list || []) {
+      if (!n) continue;
+      if (n.kind === "group") {
+        retargetLabelInList(n.children, path, oldLabel, newLabel);
+        continue;
+      }
+      if (n.kind === "lib" && n.path === path && String(n.label || "") === oldLabel) {
+        n.label = newLabel;
+      }
+    }
+  }
+
+  function retargetLabelRefs(path, oldLabel, newLabel) {
+    retargetLabelInList(getAssembly(node), path, oldLabel, newLabel);
+    const presets = getPresets(node);
+    for (const k of Object.keys(presets)) {
+      if (Array.isArray(presets[k])) retargetLabelInList(presets[k], path, oldLabel, newLabel);
+    }
+  }
+
   // ＋ 按钮：自动归组，追加到末尾
   function addToAssembly(item) {
     const entry = makeLibEntry(item);
@@ -688,6 +710,19 @@ async function openPanel(node) {
         renderAssembly();
         syncNode(node, lib);
         toast("已修改（记得点“保存词库到文件”）");
+      });
+      row.querySelector(".pa-ilabel").addEventListener("dblclick", async (e) => {
+        e.stopPropagation();
+        const oldLabel = it.label || "";
+        const v = await paAskText(`修改短名（${it.path}）`, oldLabel);
+        if (v === null || v === oldLabel) return;
+        it.label = v;
+        retargetLabelRefs(it.path, oldLabel, v);
+        dirty = true;
+        renderTree();
+        renderAssembly();
+        syncNode(node, lib);
+        toast("已修改短名（记得点“保存词库到文件”）");
       });
       row.addEventListener("dragstart", (e) => {
         treeDragItem = it;
