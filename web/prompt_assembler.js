@@ -228,7 +228,7 @@ function injectStyle() {
   .pa-item{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;border:1px solid transparent;}
   .pa-item:hover{background:#26262e;border-color:#3a3a44;}
   .pa-item .pa-ilabel{color:#8fc7ff;flex:0 0 auto;font-weight:600;}
-  .pa-item .pa-itext{color:#aab0ba;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pa-item .pa-itext{color:#aab0ba;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-item .pa-add{color:#6cc07a;flex:0 0 auto;font-weight:700;padding:0 5px;border-radius:4px;cursor:pointer;}
   .pa-item .pa-add:hover{background:#2e4a34;color:#a6e0b0;}
   .pa-item .pa-del{color:#777;flex:0 0 auto;cursor:pointer;padding:0 3px;}
@@ -657,7 +657,7 @@ async function openPanel(node) {
       const row = document.createElement("div");
       row.className = "pa-item";
       row.draggable = true;
-      row.title = (it.path || "") + "（拖到右侧组装区，或点左侧 ＋）";
+      row.title = (it.path || "") + "（拖到右侧组装区，或点左侧 ＋；双击文本可直接改）";
       row.innerHTML = `
         <span class="pa-add" title="加入组装区">＋</span>
         <span class="pa-ilabel">${escapeHtml(it.label || "")}</span>
@@ -675,6 +675,19 @@ async function openPanel(node) {
         if (idx >= 0) lib.items.splice(idx, 1);
         dirty = true;
         renderTree();
+        renderAssembly();
+        syncNode(node, lib);
+      });
+      row.querySelector(".pa-itext").addEventListener("dblclick", async (e) => {
+        e.stopPropagation();
+        const v = await paAskText(`修改文本（${it.path}）`, it.text || "");
+        if (v === null) return;
+        it.text = v;
+        dirty = true;
+        renderTree();
+        renderAssembly();
+        syncNode(node, lib);
+        toast("已修改（记得点“保存词库到文件”）");
       });
       row.addEventListener("dragstart", (e) => {
         treeDragItem = it;
