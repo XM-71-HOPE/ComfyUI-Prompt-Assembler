@@ -281,6 +281,7 @@ function injectStyle() {
   .pa-arrow:hover{color:#fff;}
   .pa-groupkids{position:relative;transition:background .1s;border-radius:6px;}
   .pa-groupkids.drop-into{background:rgba(91,143,201,.14);outline:1px dashed #5b8fc9;outline-offset:-2px;}
+  .pa-row.drop-into-self{background:#2e4a34;border-color:#6cc07a;}
   .pa-kidempty{padding:6px 8px;border:1px dashed #3a3a44;border-radius:6px;color:#6f757f;font-size:12px;margin-bottom:6px;}
   .pa-foot{padding:10px 16px;border-top:1px solid #3a3a44;display:flex;gap:10px;align-items:center;}
   .pa-muted{color:#7d838d;}
@@ -386,7 +387,9 @@ async function openPanel(node) {
   let dirty = false;
   let treeDragItem = null; // 从词库树里拖出来的条目
   let dragState = null;    // 组装区内正在拖动的 {list, index, item}
-  const treeOpen = new Map(); // 词库树各分区的展开状态（path -> bool）
+  const treeOpen = (node.properties.paTreeOpen && typeof node.properties.paTreeOpen === "object")
+    ? node.properties.paTreeOpen
+    : (node.properties.paTreeOpen = {}); // 词库树展开状态，默认折叠，跨打开记住
 
   const overlay = document.createElement("div");
   overlay.className = "pa-overlay";
@@ -508,7 +511,7 @@ async function openPanel(node) {
   rightHead.appendChild(mkBtn("保存当前", () => savePreset()));
   rightHead.appendChild(mkBtn("删除", () => delPreset(), "danger"));
   rightHead.appendChild(mkBtn("＋分组", () => {
-    getAssembly(node).push({ kind: "group", title: "新分组", collapsed: false, children: [] });
+    getAssembly(node).push({ kind: "group", title: "新分组", collapsed: true, children: [] });
     renderAssembly();
   }));
   rightHead.appendChild(mkBtn("清空", () => {
@@ -888,12 +891,12 @@ async function openPanel(node) {
         nameEl.title = "拖条目到这里可移入此目录；点 ✎ 重命名";
         const kids = document.createElement("div");
         kids.className = "pa-children";
-        let open = treeOpen.has(child.path) ? treeOpen.get(child.path) : true;
+        let open = treeOpen[child.path] === true; // 默认折叠
         kids.style.display = open ? "" : "none";
         nameEl.firstChild.textContent = open ? "▾" : "▸";
         nameEl.addEventListener("click", () => {
           open = !open;
-          treeOpen.set(child.path, open);
+          treeOpen[child.path] = open;
           kids.style.display = open ? "" : "none";
           nameEl.firstChild.textContent = open ? "▾" : "▸";
         });
@@ -1010,7 +1013,7 @@ async function openPanel(node) {
     }
   }
 
-  function attachDrag(row, item, list, index) {
+  function attachDrag(row, item, list, index, group) {
     row.addEventListener("dragstart", (e) => {
       dragState = { list, index, item };
       row.classList.add("dragging");
@@ -1020,25 +1023,41 @@ async function openPanel(node) {
     row.addEventListener("dragend", () => {
       row.classList.remove("dragging");
       dragState = null;
-      document.querySelectorAll(".pa-row").forEach((n) => n.classList.remove("drop-before", "drop-after"));
+      document.querySelectorAll(".pa-row").forEach((n) => n.classList.remove("drop-before", "drop-after", "drop-into-self"));
       document.querySelectorAll(".pa-groupkids").forEach((n) => n.classList.remove("drop-into"));
     });
     row.addEventListener("dragover", (e) => {
       e.preventDefault();
       e.stopPropagation();
       const rect = row.getBoundingClientRect();
-      const before = e.clientY < rect.top + rect.height / 2;
-      row.classList.toggle("drop-before", before);
-      row.classList.toggle("drop-after", !before);
-      row.dataset.insertAt = String(before ? index : index + 1);
+      const rel = (e.clientY - rect.top) / Math.max(1, rect.height);
+      row.classList.remove("drop-before", "drop-after", "drop-into-self");
+      const canInto = group && !(dragState && dragState.item === group);
+      if (canInto && rel >= 0.3 && rel <= 0.7) {
+        row.classList.add("drop-into-self");
+        row.dataset.dropMode = "into";
+      } else if (rel < (group ? 0.3 : 0.5)) {
+        row.classList.add("drop-before");
+        row.dataset.dropMode = "before";
+      } else {
+        row.classList.add("drop-after");
+        row.dataset.dropMode = "after";
+      }
     });
-    row.addEventListener("dragleave", () => row.classList.remove("drop-before", "drop-after"));
+    row.addEventListener("dragleave", () => row.classList.remove("drop-before", "drop-after", "drop-into-self"));
     row.addEventListener("drop", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const k = row.dataset.insertAt != null ? parseInt(row.dataset.insertAt, 10) : index;
-      row.classList.remove("drop-before", "drop-after");
-      dropInto(list, k);
+      const mode = row.dataset.dropMode || "before";
+      row.classList.remove("drop-before", "drop-after", "drop-into-self");
+      if (mode === "into") {
+        if (!group) return;
+        group.children = group.children || [];
+        group.collapsed = false; // 放进去就展开，方便看到
+        dropInto(group.children, group.children.length);
+        return;
+      }
+      dropInto(list, mode === "after" ? index + 1 : index);
     });
   }
 
@@ -1180,7 +1199,7 @@ async function openPanel(node) {
     });
     row.appendChild(del);
 
-    attachDrag(row, g, list, i);
+    attachDrag(row, g, list, i, g);
     return row;
   }
 
