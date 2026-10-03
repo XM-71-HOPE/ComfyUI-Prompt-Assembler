@@ -249,6 +249,7 @@ function injectStyle() {
   .pa-catpen{opacity:0;color:#8fc7ff;padding:0 4px;border-radius:4px;}
   .pa-catname:hover .pa-catpen{opacity:1;}
   .pa-catpen:hover{background:#2e3a4a;}
+  .pa-catname.pa-catdrop{background:#2e4a34;outline:1px dashed #6cc07a;outline-offset:-2px;}
   .pa-children{margin-left:14px;border-left:1px solid #2f2f38;padding-left:6px;}
   .pa-item{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;border:1px solid transparent;}
   .pa-item:hover{background:#26262e;border-color:#3a3a44;}
@@ -466,6 +467,20 @@ async function openPanel(node) {
   leftHead.innerHTML = `<span>词库（点 ＋ 或拖到右边加入组装区）</span>`;
   const leftScroll = document.createElement("div");
   leftScroll.className = "pa-scroll";
+  // 拖到左侧空白处 = 移到根目录
+  leftScroll.addEventListener("dragover", (e) => {
+    if (!treeDragItem) return;
+    e.preventDefault();
+  });
+  leftScroll.addEventListener("drop", (e) => {
+    if (!treeDragItem) return;
+    if (e.target.closest && (e.target.closest(".pa-catname") || e.target.closest(".pa-item"))) return;
+    e.preventDefault();
+    const moving = treeDragItem;
+    treeDragItem = null;
+    right.classList.remove("pa-dropactive");
+    moveItem(moving, "");
+  });
   const addForm = document.createElement("div");
   addForm.className = "pa-additem";
   addForm.innerHTML = `
@@ -705,6 +720,34 @@ async function openPanel(node) {
     toast("已重命名目录（记得点“保存词库到文件”）");
   }
 
+  // 移动单个条目到另一个目录：改 path，并同步组装区/预设里对它的引用
+  function retargetOneInList(list, oldPath, label, newPath) {
+    for (const n of list || []) {
+      if (!n) continue;
+      if (n.kind === "group") { retargetOneInList(n.children, oldPath, label, newPath); continue; }
+      if (n.kind === "lib" && n.path === oldPath && String(n.label || "") === String(label)) {
+        n.path = newPath;
+      }
+    }
+  }
+
+  function moveItem(it, newPath) {
+    newPath = String(newPath || "").replace(/^\/+|\/+$/g, "").replace(/\/{2,}/g, "/");
+    const oldPath = it.path || "";
+    if (oldPath === newPath) return;
+    it.path = newPath;
+    retargetOneInList(getAssembly(node), oldPath, it.label || "", newPath);
+    const presets = getPresets(node);
+    for (const k of Object.keys(presets)) {
+      if (Array.isArray(presets[k])) retargetOneInList(presets[k], oldPath, it.label || "", newPath);
+    }
+    dirty = true;
+    renderTree();
+    renderAssembly();
+    syncNode(node, lib);
+    toast(`已移动到「${newPath || "根目录"}」（记得点“保存词库到文件”）`);
+  }
+
   // ＋ 按钮：自动归组，追加到末尾
   function addToAssembly(item) {
     const entry = makeLibEntry(item);
@@ -748,7 +791,7 @@ async function openPanel(node) {
       const row = document.createElement("div");
       row.className = "pa-item";
       row.draggable = true;
-      row.title = (it.path || "") + "（拖到右侧组装区，或点左侧 ＋；双击文本可直接改）";
+      row.title = (it.path || "") + "（拖到右侧加入组装区，或点左侧 ＋；双击改文本；拖到目录/条目上可移动）";
       row.innerHTML = `
         <span class="pa-add" title="加入组装区">＋</span>
         <span class="pa-ilabel">${escapeHtml(it.label || "")}</span>
@@ -793,6 +836,24 @@ async function openPanel(node) {
         syncNode(node, lib);
         toast("已修改短名（记得点“保存词库到文件”）");
       });
+      // 把一个条目拖到另一个条目上 = 移入那个条目所在的目录
+      row.addEventListener("dragover", (e) => {
+        if (!treeDragItem || treeDragItem === it) return;
+        e.preventDefault();
+        e.stopPropagation();
+        row.classList.add("pa-catdrop");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("pa-catdrop"));
+      row.addEventListener("drop", (e) => {
+        if (!treeDragItem || treeDragItem === it) return;
+        e.preventDefault();
+        e.stopPropagation();
+        row.classList.remove("pa-catdrop");
+        const moving = treeDragItem;
+        treeDragItem = null;
+        right.classList.remove("pa-dropactive");
+        moveItem(moving, it.path);
+      });
       row.addEventListener("dragstart", (e) => {
         treeDragItem = it;
         e.dataTransfer.effectAllowed = "copy";
@@ -824,6 +885,7 @@ async function openPanel(node) {
         const nameEl = document.createElement("div");
         nameEl.className = "pa-catname";
         nameEl.innerHTML = `<span class="pa-arrow">▾</span><span class="pa-cattext">${escapeHtml(child.name)}</span><span class="pa-catpen" title="重命名此目录">✎</span>`;
+        nameEl.title = "拖条目到这里可移入此目录；点 ✎ 重命名";
         const kids = document.createElement("div");
         kids.className = "pa-children";
         let open = treeOpen.has(child.path) ? treeOpen.get(child.path) : true;
@@ -838,6 +900,24 @@ async function openPanel(node) {
         nameEl.querySelector(".pa-catpen").addEventListener("click", (e) => {
           e.stopPropagation();
           renameDir(child.path, child.name);
+        });
+        // 把条目拖到目录名上 = 移入此目录
+        nameEl.addEventListener("dragover", (e) => {
+          if (!treeDragItem) return;
+          e.preventDefault();
+          e.stopPropagation();
+          nameEl.classList.add("pa-catdrop");
+        });
+        nameEl.addEventListener("dragleave", () => nameEl.classList.remove("pa-catdrop"));
+        nameEl.addEventListener("drop", (e) => {
+          if (!treeDragItem) return;
+          e.preventDefault();
+          e.stopPropagation();
+          nameEl.classList.remove("pa-catdrop");
+          const moving = treeDragItem;
+          treeDragItem = null;
+          right.classList.remove("pa-dropactive");
+          moveItem(moving, child.path);
         });
         renderNode(child, kids);
         wrap.appendChild(nameEl);
