@@ -237,15 +237,15 @@ function injectStyle() {
   .pa-input:focus,.pa-textarea:focus{outline:none;border-color:#5b8fc9;}
   .pa-body{display:flex;flex:1;min-height:0;}
   .pa-pane{display:flex;flex-direction:column;min-height:0;}
-  .pa-left{width:46%;border-right:1px solid #3a3a44;}
-  .pa-right{flex:1;}
+  .pa-left{width:46%;min-width:0;border-right:1px solid #3a3a44;}
+  .pa-right{flex:1;min-width:0;}
   .pa-right.pa-dropactive{outline:2px dashed #5b8fc9;outline-offset:-4px;}
   .pa-panehead{padding:8px 12px;border-bottom:1px solid #2c2c34;color:#9aa0aa;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .pa-scroll{flex:1;overflow:auto;padding:8px 10px;}
   .pa-cat{margin:2px 0;}
   .pa-catname{cursor:pointer;padding:4px 6px;border-radius:5px;user-select:none;display:flex;align-items:center;gap:6px;color:#c8cdd6;}
   .pa-catname:hover{background:#26262e;}
-  .pa-cattext{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pa-cattext{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .pa-catpen{opacity:0;color:#8fc7ff;padding:0 4px;border-radius:4px;}
   .pa-catname:hover .pa-catpen{opacity:1;}
   .pa-catpen:hover{background:#2e3a4a;}
@@ -254,7 +254,7 @@ function injectStyle() {
   .pa-item{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;border:1px solid transparent;}
   .pa-item:hover{background:#26262e;border-color:#3a3a44;}
   .pa-item .pa-ilabel{color:#8fc7ff;flex:0 0 auto;font-weight:600;}
-  .pa-item .pa-itext{color:#aab0ba;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
+  .pa-item .pa-itext{color:#aab0ba;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-item .pa-add{color:#6cc07a;flex:0 0 auto;font-weight:700;padding:0 5px;border-radius:4px;cursor:pointer;}
   .pa-item .pa-add:hover{background:#2e4a34;color:#a6e0b0;}
   .pa-item .pa-del{color:#777;flex:0 0 auto;cursor:pointer;padding:0 3px;}
@@ -270,13 +270,13 @@ function injectStyle() {
   .pa-handle{cursor:grab;color:#666;user-select:none;}
   .pa-rlabel{color:#8fc7ff;font-weight:600;flex:0 0 auto;}
   .pa-rlabel.pa-aliased{color:#ffd479;}
-  .pa-rtext{color:#c3c8d2;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
+  .pa-rtext{color:#c3c8d2;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-badge{font-size:11px;color:#888;border:1px solid #444;border-radius:4px;padding:0 4px;white-space:nowrap;}
   .pa-badge.pa-editable{cursor:pointer;}
   .pa-badge.pa-editable:hover{color:#fff;border-color:#777;}
   .pa-badge.pa-editable.on{color:#ffcf7a;border-color:#7a5a2a;}
   .pa-grouphdr{background:#2b3140;border-color:#3f4a5e;}
-  .pa-grouptitle{color:#ffd479;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
+  .pa-grouptitle{color:#ffd479;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-arrow{cursor:pointer;color:#aab2bd;user-select:none;width:12px;text-align:center;}
   .pa-arrow:hover{color:#fff;}
   .pa-groupkids{position:relative;transition:background .1s;border-radius:6px;}
