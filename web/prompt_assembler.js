@@ -255,6 +255,7 @@ function injectStyle() {
   .pa-row.overridden .pa-rtext{color:#ffcf7a;}
   .pa-handle{cursor:grab;color:#666;user-select:none;}
   .pa-rlabel{color:#8fc7ff;font-weight:600;flex:0 0 auto;}
+  .pa-rlabel.pa-aliased{color:#ffd479;}
   .pa-rtext{color:#c3c8d2;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text;}
   .pa-badge{font-size:11px;color:#888;border:1px solid #444;border-radius:4px;padding:0 4px;white-space:nowrap;}
   .pa-badge.pa-editable{cursor:pointer;}
@@ -971,9 +972,21 @@ async function openPanel(node) {
     });
     row.appendChild(cb);
 
+    const baseLabel = it.kind === "text" ? "[文本]" : (it.label || it.path);
     const label = document.createElement("span");
-    label.className = "pa-rlabel";
-    label.textContent = it.kind === "text" ? "[文本]" : it.label || it.path;
+    label.className = "pa-rlabel" + (it.alias ? " pa-aliased" : "");
+    label.textContent = it.alias || baseLabel;
+    label.title = it.alias
+      ? `临时显示名；原名：${baseLabel}（双击改；留空则恢复原名）`
+      : "双击临时改名（只改组装区显示名，不动词库）";
+    label.addEventListener("dblclick", async (e) => {
+      e.stopPropagation();
+      const v = await paAskText("临时改名（只改组装区显示名，不动词库）", it.alias || "");
+      if (v === null) return;
+      if (v.trim() === "") delete it.alias; // 留空 = 恢复原名
+      else it.alias = v.trim();
+      renderAssembly();
+    });
     row.appendChild(label);
 
     const text = document.createElement("span");
