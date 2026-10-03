@@ -332,17 +332,23 @@ function paConfirm(message) {
 
 function paAskText(message, defaultValue = "") {
   return new Promise((resolve) => {
+    const val = String(defaultValue == null ? "" : defaultValue);
+    const wide = val.length > 60 || val.includes("\n");
     const ov = document.createElement("div");
     ov.className = "pa-dialog-ov";
     const box = document.createElement("div");
     box.className = "pa-dialog";
+    if (wide) box.style.width = "min(820px, 94vw)";
     const msg = document.createElement("div");
     msg.className = "pa-dialog-msg";
     msg.textContent = message;
     const inp = document.createElement("textarea");
     inp.className = "pa-textarea";
-    inp.rows = 3;
-    inp.value = defaultValue || "";
+    inp.rows = wide ? 12 : 3;
+    inp.style.resize = "vertical";
+    inp.style.minHeight = "3.5em";
+    inp.style.lineHeight = "1.45";
+    inp.value = val;
     const btns = document.createElement("div");
     btns.className = "pa-dialog-btns";
     const ok = document.createElement("button");
