@@ -150,8 +150,8 @@ function joinAssembly(node, lib) {
   return flattenLeaves(getAssembly(node), [])
     .filter((it) => it.enabled !== false)
     .map((it) => resolveAssemblyItem(it, lib))
-    .map((s) => (s || "").trim())
-    .filter(Boolean)
+    .map((s) => (s == null ? "" : String(s)))
+    .filter((s) => s.trim() !== "") // 只丢纯空白的项，保留原文（含首尾空白）
     .join(sep);
 }
 
@@ -160,6 +160,14 @@ function syncNode(node, lib) {
   if (w) w.value = joinAssembly(node, lib);
   node.setDirtyCanvas?.(true, true);
   app.graph?.setDirtyCanvas?.(true, true);
+}
+
+// 分隔符框里用 \n / \t 表示换行、制表符，方便肉眼看见
+function escapeSep(s) {
+  return String(s || "").replace(/\n/g, "\\n").replace(/\t/g, "\\t");
+}
+function unescapeSep(s) {
+  return String(s || "").replace(/\\n/g, "\n").replace(/\\t/g, "\t");
 }
 
 function nodeLibrary(node) {
@@ -397,9 +405,10 @@ async function openPanel(node) {
   const sepInput = document.createElement("input");
   sepInput.className = "pa-input";
   sepInput.style.width = "70px";
-  sepInput.value = getSeparator(node, lib);
+  sepInput.title = "分隔符；\\n 表示换行，\\t 表示制表符";
+  sepInput.value = escapeSep(getSeparator(node, lib));
   sepInput.addEventListener("input", () => {
-    node.properties.paSeparator = sepInput.value;
+    node.properties.paSeparator = unescapeSep(sepInput.value);
     syncNode(node, lib);
   });
   head.appendChild(sepInput);
@@ -572,7 +581,7 @@ async function openPanel(node) {
     lib.items = l.items;
     lib.separator = l.separator;
     dirty = false;
-    if (typeof node.properties.paSeparator !== "string") sepInput.value = getSeparator(node, lib);
+    if (typeof node.properties.paSeparator !== "string") sepInput.value = escapeSep(getSeparator(node, lib));
     renderTree();
     renderAssembly();
     syncNode(node, lib);
