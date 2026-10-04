@@ -269,6 +269,7 @@ function injectStyle() {
   .pa-row.drop-before::before{top:-4px;}
   .pa-row.drop-after::after{bottom:-4px;}
   .pa-row.disabled .pa-rtext,.pa-row.disabled .pa-rlabel{opacity:.4;text-decoration:line-through;}
+  .pa-row.pa-grouphdr.disabled .pa-grouptitle{opacity:.45;}
   .pa-row.overridden{background:#2b2620;border-color:#5c4a28;}
   .pa-row.overridden .pa-rtext{color:#ffcf7a;}
   .pa-handle{cursor:grab;color:#666;user-select:none;}
@@ -988,6 +989,29 @@ async function openPanel(node) {
     return n;
   }
 
+  function collectLeaves(list) {
+    const out = [];
+    for (const x of list || []) {
+      if (x.kind === "group") out.push(...collectLeaves(x.children || []));
+      else out.push(x);
+    }
+    return out;
+  }
+
+  // 成员勾选变化后，就地刷新各分组头的总开关（不重渲染）
+  function refreshGroupChecks() {
+    rightScroll.querySelectorAll(".pa-grouphdr").forEach((row) => {
+      const g = row._group;
+      const cb = row.querySelector('input[type=checkbox]');
+      if (!g || !cb) return;
+      const leaves = collectLeaves(g.children || []);
+      const on = leaves.filter((x) => x.enabled !== false).length;
+      cb.checked = leaves.length > 0 && on === leaves.length;
+      cb.indeterminate = on > 0 && on < leaves.length;
+      row.classList.toggle("disabled", leaves.length > 0 && on === 0);
+    });
+  }
+
   function containsList(group, list) {
     if (group.children === list) return true;
     for (const c of group.children || []) {
@@ -1104,6 +1128,7 @@ async function openPanel(node) {
     cb.addEventListener("change", () => {
       it.enabled = cb.checked;
       row.classList.toggle("disabled", !cb.checked);
+      refreshGroupChecks();
       syncNode(node, lib);
       updatePreview();
     });
@@ -1178,14 +1203,35 @@ async function openPanel(node) {
   }
 
   function makeGroupRow(g, list, i, depth) {
+    const leaves = collectLeaves(g.children || []);
+    const onCount = leaves.filter((x) => x.enabled !== false).length;
+    const allOn = leaves.length > 0 && onCount === leaves.length;
+    const allOff = leaves.length > 0 && onCount === 0;
     const row = document.createElement("div");
-    row.className = "pa-row pa-grouphdr";
+    row.className = "pa-row pa-grouphdr" + (allOff ? " disabled" : "");
     row.draggable = true;
+    row._group = g;
 
     const handle = document.createElement("span");
     handle.className = "pa-handle";
     handle.textContent = "⠿";
     row.appendChild(handle);
+
+    // 整组开关：一勾全开 / 一取消全关
+    const gcb = document.createElement("input");
+    gcb.type = "checkbox";
+    gcb.checked = allOn;
+    gcb.indeterminate = onCount > 0 && onCount < leaves.length;
+    gcb.disabled = leaves.length === 0;
+    gcb.title = "整组启用/禁用";
+    gcb.addEventListener("click", (e) => e.stopPropagation());
+    gcb.addEventListener("change", () => {
+      const target = gcb.checked;
+      leaves.forEach((x) => { x.enabled = target; });
+      renderAssembly();
+      syncNode(node, lib);
+    });
+    row.appendChild(gcb);
 
     const arrow = document.createElement("span");
     arrow.className = "pa-arrow";
