@@ -151,9 +151,19 @@ function flattenLeaves(list, out) {
 
 function joinAssembly(node, lib) {
   const sep = getSeparator(node, lib);
-  return flattenLeaves(getAssembly(node), [])
-    .filter((it) => it.enabled !== false)
-    .map((it) => resolveAssemblyItem(it, lib))
+  const out = [];
+  (function walk(list) {
+    for (const n of list || []) {
+      if (!n) continue;
+      if (n.kind === "group") {
+        if (n.enabled === false) continue; // 分组关了 → 整棵子树跳过
+        walk(n.children || []);
+      } else if (n.enabled !== false) {
+        out.push(resolveAssemblyItem(n, lib));
+      }
+    }
+  })(getAssembly(node));
+  return out
     .map((s) => (s == null ? "" : String(s)))
     .filter((s) => s.trim() !== "") // 只丢纯空白的项，保留原文（含首尾空白）
     .join(sep);
@@ -284,6 +294,7 @@ function injectStyle() {
   .pa-arrow{cursor:pointer;color:#aab2bd;user-select:none;width:12px;text-align:center;}
   .pa-arrow:hover{color:#fff;}
   .pa-groupkids{position:relative;transition:background .1s;border-radius:6px;}
+  .pa-groupkids.pa-gateoff{opacity:.5;}
   .pa-groupkids.drop-into{background:rgba(91,143,201,.14);outline:1px dashed #5b8fc9;outline-offset:-2px;}
   .pa-row.drop-into-self{background:#2e4a34;border-color:#6cc07a;}
   .pa-kidempty{padding:6px 8px;border:1px dashed #3a3a44;border-radius:6px;color:#6f757f;font-size:12px;margin-bottom:6px;}
@@ -989,29 +1000,6 @@ async function openPanel(node) {
     return n;
   }
 
-  function collectLeaves(list) {
-    const out = [];
-    for (const x of list || []) {
-      if (x.kind === "group") out.push(...collectLeaves(x.children || []));
-      else out.push(x);
-    }
-    return out;
-  }
-
-  // 成员勾选变化后，就地刷新各分组头的总开关（不重渲染）
-  function refreshGroupChecks() {
-    rightScroll.querySelectorAll(".pa-grouphdr").forEach((row) => {
-      const g = row._group;
-      const cb = row.querySelector('input[type=checkbox]');
-      if (!g || !cb) return;
-      const leaves = collectLeaves(g.children || []);
-      const on = leaves.filter((x) => x.enabled !== false).length;
-      cb.checked = leaves.length > 0 && on === leaves.length;
-      cb.indeterminate = on > 0 && on < leaves.length;
-      row.classList.toggle("disabled", leaves.length > 0 && on === 0);
-    });
-  }
-
   function containsList(group, list) {
     if (group.children === list) return true;
     for (const c of group.children || []) {
@@ -1128,7 +1116,6 @@ async function openPanel(node) {
     cb.addEventListener("change", () => {
       it.enabled = cb.checked;
       row.classList.toggle("disabled", !cb.checked);
-      refreshGroupChecks();
       syncNode(node, lib);
       updatePreview();
     });
@@ -1203,31 +1190,24 @@ async function openPanel(node) {
   }
 
   function makeGroupRow(g, list, i, depth) {
-    const leaves = collectLeaves(g.children || []);
-    const onCount = leaves.filter((x) => x.enabled !== false).length;
-    const allOn = leaves.length > 0 && onCount === leaves.length;
-    const allOff = leaves.length > 0 && onCount === 0;
+    const off = g.enabled === false;
     const row = document.createElement("div");
-    row.className = "pa-row pa-grouphdr" + (allOff ? " disabled" : "");
+    row.className = "pa-row pa-grouphdr" + (off ? " disabled" : "");
     row.draggable = true;
-    row._group = g;
 
     const handle = document.createElement("span");
     handle.className = "pa-handle";
     handle.textContent = "⠿";
     row.appendChild(handle);
 
-    // 整组开关：一勾全开 / 一取消全关
+    // 分组开关：关掉则整组不参与输出（不改成员自身的开关）
     const gcb = document.createElement("input");
     gcb.type = "checkbox";
-    gcb.checked = allOn;
-    gcb.indeterminate = onCount > 0 && onCount < leaves.length;
-    gcb.disabled = leaves.length === 0;
-    gcb.title = "整组启用/禁用";
+    gcb.checked = !off;
+    gcb.title = "分组开关：关闭则整组不参与输出（成员自身开关不变）";
     gcb.addEventListener("click", (e) => e.stopPropagation());
     gcb.addEventListener("change", () => {
-      const target = gcb.checked;
-      leaves.forEach((x) => { x.enabled = target; });
+      g.enabled = gcb.checked;
       renderAssembly();
       syncNode(node, lib);
     });
@@ -1278,7 +1258,7 @@ async function openPanel(node) {
       if (n && n.kind === "group") {
         container.appendChild(makeGroupRow(n, list, i, depth));
         const kids = document.createElement("div");
-        kids.className = "pa-groupkids";
+        kids.className = "pa-groupkids" + (n.enabled === false ? " pa-gateoff" : "");
         kids.style.marginLeft = "16px";
         if (n.collapsed) kids.style.display = "none";
         kids.addEventListener("dragover", (e) => {
