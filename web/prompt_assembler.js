@@ -317,6 +317,42 @@ function injectStyle() {
 // 自绘对话框（Electron 下没有 window.prompt）
 // ---------------------------------------------------------------------------
 
+function paAskChoice(message, options) {
+  return new Promise((resolve) => {
+    const ov = document.createElement("div");
+    ov.className = "pa-dialog-ov";
+    const box = document.createElement("div");
+    box.className = "pa-dialog";
+    const msg = document.createElement("div");
+    msg.className = "pa-dialog-msg";
+    msg.textContent = message;
+    const btns = document.createElement("div");
+    btns.className = "pa-dialog-btns";
+    let handled = false;
+    const onKey = (e) => { if (e.key === "Escape") { e.stopPropagation(); done(null); } };
+    const done = (v) => {
+      if (handled) return;
+      handled = true;
+      document.removeEventListener("keydown", onKey, true);
+      ov.remove();
+      resolve(v);
+    };
+    options.forEach((op) => {
+      const b = document.createElement("button");
+      b.className = "pa-btn" + (op.cls ? " " + op.cls : "");
+      b.textContent = op.label;
+      b.addEventListener("click", () => done(op.value));
+      btns.appendChild(b);
+    });
+    box.append(msg, btns);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    document.addEventListener("keydown", onKey, true);
+    ov.addEventListener("mousedown", (e) => { if (e.target === ov) done(null); });
+    setTimeout(() => { if (btns.lastChild) btns.lastChild.focus(); }, 0);
+  });
+}
+
 function paConfirm(message) {
   return new Promise((resolve) => {
     const ov = document.createElement("div");
@@ -473,18 +509,7 @@ async function openPanel(node) {
     renderAssembly();
   }));
 
-  head.appendChild(mkBtn("保存词库到文件", async () => {
-    try {
-      const saved = await apiSaveLibrary(libName, lib);
-      lib.items = saved.items;
-      lib.separator = saved.separator;
-      dirty = false;
-      renderTree();
-      toast("词库已保存");
-    } catch (e) {
-      toast("保存失败: " + e.message, true);
-    }
-  }));
+  head.appendChild(mkBtn("保存词库到文件", () => saveLibraryToFile()));
 
   head.appendChild(mkBtn("关闭", () => close()));
   modal.appendChild(head);
@@ -596,7 +621,18 @@ async function openPanel(node) {
   }
 
   async function close() {
-    if (dirty && !(await paConfirm("词库有未保存的改动，仍要关闭吗？"))) return;
+    if (dirty) {
+      const choice = await paAskChoice("词库有未保存的改动", [
+        { label: "保存到词库并关闭", value: "save", cls: "primary" },
+        { label: "不保存关闭", value: "discard" },
+        { label: "取消", value: null },
+      ]);
+      if (choice !== "save" && choice !== "discard") return; // 取消
+      if (choice === "save") {
+        const ok = await saveLibraryToFile();
+        if (!ok) return; // 保存失败就不关，避免丢改动
+      }
+    }
     document.removeEventListener("keydown", onPanelKey);
     overlay.remove();
     openModalEl = null;
@@ -622,6 +658,21 @@ async function openPanel(node) {
     t.style.cssText = `position:fixed;bottom:38px;left:50%;transform:translateX(-50%);background:${isErr ? "#7a2626" : "#26406a"};color:#fff;padding:8px 16px;border-radius:8px;z-index:14000;font-size:13px;`;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 1800);
+  }
+
+  async function saveLibraryToFile() {
+    try {
+      const saved = await apiSaveLibrary(libName, lib);
+      lib.items = saved.items;
+      lib.separator = saved.separator;
+      dirty = false;
+      renderTree();
+      toast("词库已保存");
+      return true;
+    } catch (e) {
+      toast("保存失败: " + e.message, true);
+      return false;
+    }
   }
 
   async function refreshLibraryOptions(selected) {
